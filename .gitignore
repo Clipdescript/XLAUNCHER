@@ -1,0 +1,30 @@
+# Node.js
+node_modules/
+dist/
+dist-electron/
+release/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+
+# Minecraft
+minecraft_game/
+logs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
