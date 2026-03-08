@@ -165,7 +165,7 @@ const App: React.FC = () => {
       <header className="header">
         <div className="logo-container">
           <img src={logoIcon} alt="Logo" className="app-logo" />
-          <span className="app-title">Prism Launcher</span>
+          <span className="app-title">Craft Launcher</span>
         </div>
         <nav className="nav-links">
           <a onClick={reloadApp} title="Recharger la page"><i className="fas fa-sync-alt"></i></a>

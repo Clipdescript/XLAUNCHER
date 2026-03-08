@@ -154,7 +154,7 @@ app.whenReady().then(() => {
     ipcMain.handle('get-modpacks', async () => {
         try {
             const headers = {
-                'User-Agent': 'XL-Launcher/1.0 (contact@example.com)'
+                'User-Agent': 'Craft-Launcher/1.0 (contact@example.com)'
             };
             
             const facets = encodeURIComponent('[["project_type:modpack"]]');
