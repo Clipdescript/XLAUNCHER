@@ -110,14 +110,24 @@ function createWindow() {
     }
 
     autoUpdater.on('update-available', () => {
-        win.webContents.send('log', '[UPDATE] Mise à jour disponible ! Téléchargement...');
+        win.webContents.send('update-status', { status: 'available' });
+    });
+
+    autoUpdater.on('download-progress', (progressObj) => {
+        win.webContents.send('update-progress', { 
+            percent: progressObj.percent,
+            transferred: progressObj.transferred,
+            total: progressObj.total
+        });
     });
 
     autoUpdater.on('update-downloaded', () => {
-        win.webContents.send('log', '[UPDATE] Mise à jour téléchargée. Redémarrage dans 5s...');
-        setTimeout(() => {
-            autoUpdater.quitAndInstall();
-        }, 5000);
+        win.webContents.send('update-status', { status: 'downloaded' });
+    });
+
+    // Gestionnaire pour redémarrer l'application après mise à jour
+    ipcMain.handle('restart-app', () => {
+        autoUpdater.quitAndInstall();
     });
 
     return win;
@@ -206,66 +216,89 @@ app.whenReady().then(() => {
         try {
             console.log(`Lancement de la version ${options.version} pour ${options.username}...`);
             
-            // Gestion des chemins en Production vs Développement
             const isPackaged = app.isPackaged;
-            let pythonExecutable = 'python';
             let scriptPath = '';
+            let pythonExecutable = 'python'; // Par défaut
 
             if (isPackaged) {
-                // En production (installé), les fichiers sont dans resources
-                // process.resourcesPath pointe vers le dossier resources de l'installation
+                // En production
                 scriptPath = path.join(process.resourcesPath, 'launcher_backend.py');
                 
-                // Si on embarque le venv, on pointe vers lui
-                const venvPython = path.join(process.resourcesPath, '.venv', 'Scripts', 'python.exe');
-                if (fs.existsSync(venvPython)) {
-                    pythonExecutable = venvPython;
+                // 1. Chercher Python embarqué dans resources/.venv/Scripts/python.exe
+                const embeddedPython = path.join(process.resourcesPath, '.venv', 'Scripts', 'python.exe');
+                if (fs.existsSync(embeddedPython)) {
+                    pythonExecutable = embeddedPython;
                 }
             } else {
                 // En développement
                 scriptPath = path.join(process.cwd(), 'launcher_backend.py');
-                const venvPython = path.join(process.cwd(), '.venv', 'Scripts', 'python.exe');
-                if (fs.existsSync(venvPython)) {
-                    pythonExecutable = venvPython;
+                
+                // 1. Chercher Python dans .venv local
+                const localVenvPython = path.join(process.cwd(), '.venv', 'Scripts', 'python.exe');
+                if (fs.existsSync(localVenvPython)) {
+                    pythonExecutable = localVenvPython;
                 }
             }
 
-            console.log(`Script Python: ${scriptPath}`);
-            console.log(`Exécutable Python: ${pythonExecutable}`);
+            // Si on utilise le python système (pas de venv trouvé), on essaie de résoudre le chemin réel
+            // pour éviter les problèmes avec les raccourcis WindowsApps (0kb stub)
+            if (pythonExecutable === 'python') {
+                try {
+                    const { stdout } = await import('util').then(u => u.promisify(require('child_process').exec)('where python'));
+                    const paths = stdout.toString().split('\r\n').filter(p => p.trim() !== '');
+                    
+                    // On cherche un chemin qui NE contient PAS "WindowsApps" car ce sont souvent des stubs problématiques
+                    const realPython = paths.find(p => !p.includes('WindowsApps') && fs.existsSync(p));
+                    
+                    if (realPython) {
+                        pythonExecutable = realPython;
+                        console.log(`Python réel trouvé: ${pythonExecutable}`);
+                    } else if (paths.length > 0) {
+                        // Fallback sur le premier trouvé si pas de meilleur choix
+                        pythonExecutable = paths[0];
+                        console.log(`Fallback Python (peut être WindowsApps): ${pythonExecutable}`);
+                    }
+                } catch (e) {
+                    console.warn("Impossible de résoudre le chemin python via 'where':", e);
+                }
+            }
+
+            console.log(`Script Python cible: ${scriptPath}`);
+            console.log(`Exécutable Python utilisé: ${pythonExecutable}`);
 
             if (!fs.existsSync(scriptPath)) {
                 throw new Error(`Le script backend est introuvable à : ${scriptPath}`);
             }
             
-            let args: string[] = [];
+            // Construction des arguments
+            // Attention: spawn attend l'exécutable en 1er argument, et un tableau d'arguments ensuite
+            // [script.py, arg1, arg2, ...]
+            let pythonArgs = [scriptPath];
             
             let username = options.username;
             let uuid = "";
             let accessToken = "";
             
-            // Mode hors ligne / cracké si pas de token valide
             if (userProfile && userProfile.name === options.username && userProfile.accessToken) {
-                // Mode officiel
                 uuid = userProfile.uuid;
                 accessToken = userProfile.accessToken;
-                console.log("Lancement en mode OFFICIEL (Microsoft)");
-            } else {
-                // Mode hors ligne
-                console.log("Lancement en mode HORS LIGNE / CRACKÉ");
-                // On laisse uuid et accessToken vides, le script Python générera un UUID hors ligne basé sur le pseudo
             }
             
             if (options.modpack) {
-                args = [scriptPath, "install_modpack", options.modpack, username, options.maxMem, uuid, accessToken];
+                pythonArgs.push("install_modpack", options.modpack, username, options.maxMem, uuid, accessToken);
             } else {
                 const loader = options.loader || 'vanilla';
-                args = [scriptPath, options.version, username, options.maxMem, loader, uuid, accessToken];
+                pythonArgs.push(options.version, username, options.maxMem, loader, uuid, accessToken);
             }
             
-            // IMPORTANT : cwd doit être le dossier resources en prod pour que Python trouve ses petits
             const pythonCwd = isPackaged ? process.resourcesPath : process.cwd();
 
-            const pyProcess = spawn(pythonExecutable, args, { cwd: pythonCwd });
+            console.log(`Commande: "${pythonExecutable}" ${pythonArgs.map(a => `"${a}"`).join(' ')}`);
+
+            const pyProcess = spawn(pythonExecutable, pythonArgs, { 
+                cwd: pythonCwd,
+                stdio: ['ignore', 'pipe', 'pipe'] // Pipe stdout/stderr pour capturer les logs
+            });
 
             pyProcess.stdout.on('data', (data) => {
                 const lines = data.toString().split('\n');
@@ -273,14 +306,18 @@ app.whenReady().then(() => {
                     if (!line.trim()) continue;
                     try {
                         const msg = JSON.parse(line);
+                        // Transmission des messages JSON au frontend
                         if (msg.status === 'progress') {
                             win.webContents.send('progress', { current: msg.percent, total: 100, task: 'Installation' });
+                        } else if (msg.status === 'step') {
+                            win.webContents.send('progress', { current: 0, total: 100, task: msg.message });
                         } else if (msg.status === 'error') {
                             win.webContents.send('log', `[ERREUR] ${msg.message}`);
                         } else {
                             win.webContents.send('log', `[INFO] ${msg.message}`);
                         }
                     } catch (e) {
+                        // Ce n'est pas du JSON, on log brut
                         win.webContents.send('log', `[PYTHON] ${line}`);
                     }
                 }

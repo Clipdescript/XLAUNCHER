@@ -10,6 +10,9 @@ interface IElectronAPI {
   loginMicrosoft: () => Promise<any>;
   onLog: (callback: (data: string) => void) => void;
   onProgress: (callback: (data: any) => void) => void;
+  onUpdateStatus: (callback: (data: { status: string }) => void) => void;
+  onUpdateProgress: (callback: (data: { percent: number, transferred: number, total: number }) => void) => void;
+  restartApp: () => Promise<void>;
 }
 
 declare global {
@@ -36,6 +39,11 @@ const App: React.FC = () => {
   const [logs, setLogs] = useState<string[]>([]);
   const [userProfile, setUserProfile] = useState<any>(null);
 
+  // États pour la mise à jour
+  const [updateAvailable, setUpdateAvailable] = useState(false);
+  const [updateDownloaded, setUpdateDownloaded] = useState(false);
+  const [updateProgress, setUpdateProgress] = useState(0);
+
   useEffect(() => {
     // Vérification de sécurité pour éviter le crash si l'API n'est pas chargée
     if (!window.api) {
@@ -59,7 +67,31 @@ const App: React.FC = () => {
       console.log(msg);
       setLogs(prev => [...prev.slice(-50), msg]);
     });
+
+    // Listeners Mise à jour
+    window.api.onUpdateStatus((data) => {
+      if (data.status === 'available') {
+        setUpdateAvailable(true);
+        setStatus("Mise à jour disponible...");
+      } else if (data.status === 'downloaded') {
+        setUpdateDownloaded(true);
+        setUpdateAvailable(false);
+        setStatus("Mise à jour prête !");
+        setUpdateProgress(100);
+      }
+    });
+
+    window.api.onUpdateProgress((data) => {
+      setUpdateAvailable(true);
+      setUpdateProgress(Math.round(data.percent));
+      setStatus(`Téléchargement màj: ${Math.round(data.percent)}%`);
+    });
+
   }, []);
+
+  const handleRestart = async () => {
+    await window.api.restartApp();
+  };
 
   const handleLaunch = async () => {
     if (!username) return alert("Pseudo requis !");
@@ -222,14 +254,17 @@ const App: React.FC = () => {
       </main>
 
       {/* Progress Bar */}
-      {isLaunching && (
+      {(isLaunching || updateAvailable || updateDownloaded) && (
         <div className="progress-bar-container">
           <div className="progress-info">
             <span>{status}</span>
-            <span>{progress}%</span>
+            <span>{updateAvailable || updateDownloaded ? `${updateProgress}%` : `${progress}%`}</span>
           </div>
           <div className="progress-track">
-            <div className="progress-fill" style={{ width: `${progress}%` }}></div>
+            <div 
+              className="progress-fill" 
+              style={{ width: `${updateAvailable || updateDownloaded ? updateProgress : progress}%` }}
+            ></div>
           </div>
         </div>
       )}
@@ -283,10 +318,14 @@ const App: React.FC = () => {
 
         <button 
           className="play-btn" 
-          onClick={handleLaunch}
-          disabled={isLaunching}
+          onClick={updateDownloaded ? handleRestart : handleLaunch}
+          disabled={isLaunching || updateAvailable}
+          style={updateDownloaded ? { backgroundColor: '#e74c3c' } : {}}
         >
-          {isLaunching ? 'LANCEMENT...' : 'Entrer dans le jeu'}
+          {isLaunching ? 'LANCEMENT...' : 
+           updateAvailable ? 'TÉLÉCHARGEMENT...' : 
+           updateDownloaded ? 'REDÉMARRER' : 
+           'Entrer dans le jeu'}
         </button>
 
         <div className="tools-group">
