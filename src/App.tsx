@@ -237,7 +237,7 @@ const App: React.FC = () => {
           <button className="sidebar-btn"><i className="fas fa-play"></i> COMMENT JOUER ?</button>
           <button className="sidebar-btn"><i className="fas fa-question"></i> AIDE</button>
           <button className="sidebar-btn"><i className="fas fa-tshirt"></i> INSTALLER SKIN</button>
-          <button className="sidebar-btn"><i className="fas fa-hat-wizard"></i> CAPES ANIMÉES</button>
+          <button className="sidebar-btn"><i className="fas fa-shopping-bag"></i> CAPES ANIMÉES</button>
           
           <button className="sidebar-btn orange">XL | PRISM-LAUNCHER.ORG</button>
           <button className="sidebar-btn blue">FB | PAGE FACEBOOK</button>
