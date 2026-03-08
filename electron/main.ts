@@ -245,10 +245,10 @@ app.whenReady().then(() => {
             if (pythonExecutable === 'python') {
                 try {
                     const { stdout } = await import('util').then(u => u.promisify(require('child_process').exec)('where python'));
-                    const paths = stdout.toString().split('\r\n').filter(p => p.trim() !== '');
+                    const paths = (stdout as string).toString().split('\r\n').filter((p: string) => p.trim() !== '');
                     
                     // On cherche un chemin qui NE contient PAS "WindowsApps" car ce sont souvent des stubs problématiques
-                    const realPython = paths.find(p => !p.includes('WindowsApps') && fs.existsSync(p));
+                    const realPython = paths.find((p: string) => !p.includes('WindowsApps') && fs.existsSync(p));
                     
                     if (realPython) {
                         pythonExecutable = realPython;

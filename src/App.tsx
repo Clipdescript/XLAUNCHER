@@ -165,7 +165,7 @@ const App: React.FC = () => {
       <header className="header">
         <div className="logo-container">
           <img src={logoIcon} alt="Logo" className="app-logo" />
-          <span className="app-title">XL Launcher</span>
+          <span className="app-title">Prism Launcher</span>
         </div>
         <nav className="nav-links">
           <a onClick={reloadApp} title="Recharger la page"><i className="fas fa-sync-alt"></i></a>
@@ -230,7 +230,7 @@ const App: React.FC = () => {
         {/* Sidebar Right */}
         <div className="sidebar-right">
           <div className="sidebar-title">
-            <h2>XL LAUNCHER</h2>
+            <h2>PRISM LAUNCHER</h2>
             <span>LAUNCHER POUR MINECRAFT</span>
           </div>
           
@@ -239,11 +239,11 @@ const App: React.FC = () => {
           <button className="sidebar-btn"><i className="fas fa-star"></i> INSTALLER SKIN</button>
           <button className="sidebar-btn"><i className="fas fa-star"></i> CAPES ANIMÉES</button>
           
-          <button className="sidebar-btn orange">XL | XL-LAUNCHER.ORG</button>
+          <button className="sidebar-btn orange">XL | PRISM-LAUNCHER.ORG</button>
           <button className="sidebar-btn blue">FB | PAGE FACEBOOK</button>
           
           <div className="sidebar-banner premium">
-            <span>XL Launcher PREMIUM</span>
+            <span>Prism Launcher PREMIUM</span>
           </div>
           
           <div className="sidebar-banner discord">

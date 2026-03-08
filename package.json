@@ -1,5 +1,5 @@
 {
-  "name": "xl-launcher",
+  "name": "prism-launcher",
   "version": "2.0.1",
   "description": "Launcher Minecraft Moderne",
   "main": "dist-electron/main.js",
@@ -36,8 +36,8 @@
     "wait-on": "^7.2.0"
   },
   "build": {
-    "appId": "com.xl-launcher.app",
-    "productName": "XL Launcher",
+    "appId": "com.prism-launcher.app",
+    "productName": "Prism Launcher",
     "directories": {
       "output": "dist-electron"
     },
@@ -60,7 +60,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "XL Launcher"
+      "shortcutName": "Prism Launcher"
     },
     "publish": [
       {
