@@ -1,14 +1,13 @@
 import { app, BrowserWindow, ipcMain, Menu, MenuItemConstructorOptions } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import path from 'path';
-import { Client } from 'minecraft-launcher-core';
 import fs from 'fs';
 import fetch from 'node-fetch';
 import * as msmc from 'msmc';
-import { spawn } from 'child_process';
+import { GameManager } from './GameManager';
 
-// Initialisation du lanceur
-const launcher = new Client();
+// Initialisation du gestionnaire de jeu
+const gameManager = new GameManager();
 
 // Variables globales pour stocker la session
 let authManager = new msmc.Auth("select_account"); // Mode 'select_account' force la fenêtre de choix Microsoft
@@ -216,115 +215,31 @@ app.whenReady().then(() => {
         try {
             console.log(`Lancement de la version ${options.version} pour ${options.username}...`);
             
-            const isPackaged = app.isPackaged;
-            let scriptPath = '';
-            let pythonExecutable = 'python'; // Par défaut
-
-            if (isPackaged) {
-                // En production
-                scriptPath = path.join(process.resourcesPath, 'launcher_backend.py');
-                
-                // 1. Chercher Python embarqué dans resources/.venv/Scripts/python.exe
-                const embeddedPython = path.join(process.resourcesPath, '.venv', 'Scripts', 'python.exe');
-                if (fs.existsSync(embeddedPython)) {
-                    pythonExecutable = embeddedPython;
-                }
-            } else {
-                // En développement
-                scriptPath = path.join(process.cwd(), 'launcher_backend.py');
-                
-                // 1. Chercher Python dans .venv local
-                const localVenvPython = path.join(process.cwd(), '.venv', 'Scripts', 'python.exe');
-                if (fs.existsSync(localVenvPython)) {
-                    pythonExecutable = localVenvPython;
-                }
-            }
-
-            // Si on utilise le python système (pas de venv trouvé), on essaie de résoudre le chemin réel
-            // pour éviter les problèmes avec les raccourcis WindowsApps (0kb stub)
-            if (pythonExecutable === 'python') {
-                try {
-                    const { stdout } = await import('util').then(u => u.promisify(require('child_process').exec)('where python'));
-                    const paths = (stdout as string).toString().split('\r\n').filter((p: string) => p.trim() !== '');
-                    
-                    // On cherche un chemin qui NE contient PAS "WindowsApps" car ce sont souvent des stubs problématiques
-                    const realPython = paths.find((p: string) => !p.includes('WindowsApps') && fs.existsSync(p));
-                    
-                    if (realPython) {
-                        pythonExecutable = realPython;
-                        console.log(`Python réel trouvé: ${pythonExecutable}`);
-                    } else if (paths.length > 0) {
-                        // Fallback sur le premier trouvé si pas de meilleur choix
-                        pythonExecutable = paths[0];
-                        console.log(`Fallback Python (peut être WindowsApps): ${pythonExecutable}`);
-                    }
-                } catch (e) {
-                    console.warn("Impossible de résoudre le chemin python via 'where':", e);
-                }
-            }
-
-            console.log(`Script Python cible: ${scriptPath}`);
-            console.log(`Exécutable Python utilisé: ${pythonExecutable}`);
-
-            if (!fs.existsSync(scriptPath)) {
-                throw new Error(`Le script backend est introuvable à : ${scriptPath}`);
-            }
-            
-            // Construction des arguments
-            // Attention: spawn attend l'exécutable en 1er argument, et un tableau d'arguments ensuite
-            // [script.py, arg1, arg2, ...]
-            let pythonArgs = [scriptPath];
-            
-            let username = options.username;
-            let uuid = "";
-            let accessToken = "";
-            
+            // Si l'utilisateur est connecté via Microsoft, on utilise son token
             if (userProfile && userProfile.name === options.username && userProfile.accessToken) {
-                uuid = userProfile.uuid;
-                accessToken = userProfile.accessToken;
+                options.uuid = userProfile.uuid;
+                options.accessToken = userProfile.accessToken;
             }
-            
-            if (options.modpack) {
-                pythonArgs.push("install_modpack", options.modpack, username, options.maxMem, uuid, accessToken);
-            } else {
-                const loader = options.loader || 'vanilla';
-                pythonArgs.push(options.version, username, options.maxMem, loader, uuid, accessToken);
-            }
-            
-            const pythonCwd = isPackaged ? process.resourcesPath : process.cwd();
 
-            console.log(`Commande: "${pythonExecutable}" ${pythonArgs.map(a => `"${a}"`).join(' ')}`);
-
-            const pyProcess = spawn(pythonExecutable, pythonArgs, { 
-                cwd: pythonCwd,
-                stdio: ['ignore', 'pipe', 'pipe'] // Pipe stdout/stderr pour capturer les logs
-            });
-
-            pyProcess.stdout.on('data', (data) => {
-                const lines = data.toString().split('\n');
-                for (const line of lines) {
-                    if (!line.trim()) continue;
-                    try {
-                        const msg = JSON.parse(line);
-                        // Transmission des messages JSON au frontend
-                        if (msg.status === 'progress') {
-                            win.webContents.send('progress', { current: msg.percent, total: 100, task: 'Installation' });
-                        } else if (msg.status === 'step') {
-                            win.webContents.send('progress', { current: 0, total: 100, task: msg.message });
-                        } else if (msg.status === 'error') {
-                            win.webContents.send('log', `[ERREUR] ${msg.message}`);
-                        } else {
-                            win.webContents.send('log', `[INFO] ${msg.message}`);
-                        }
-                    } catch (e) {
-                        // Ce n'est pas du JSON, on log brut
-                        win.webContents.send('log', `[PYTHON] ${line}`);
-                    }
+            // Définition des callbacks pour la communication avec le frontend
+            const callbacks = {
+                onProgress: (percent: number, task: string) => {
+                    win.webContents.send('progress', { current: percent, total: 100, task: task });
+                },
+                onLog: (message: string) => {
+                    win.webContents.send('log', message);
+                },
+                onError: (error: string) => {
+                    win.webContents.send('log', `[ERREUR] ${error}`);
+                    win.webContents.send('error', error);
                 }
-            });
+            };
 
-            pyProcess.stderr.on('data', (data) => {
-                win.webContents.send('log', `[STDERR] ${data}`);
+            // Lancement asynchrone via le GameManager
+            // On ne bloque pas le thread principal
+            gameManager.launch(options, callbacks).catch(err => {
+                console.error("Erreur fatale lors du lancement:", err);
+                callbacks.onError(err.message || err);
             });
             
             return { success: true };

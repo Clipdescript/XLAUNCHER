@@ -8,12 +8,15 @@
     "build": "tsc -p tsconfig.electron.json && vite build && electron-builder",
     "preview": "vite preview",
     "start": "tsc -p tsconfig.electron.json && concurrently -k \"cross-env BROWSER=none npm run dev\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .\"",
-    "electron:dev": "npm start"
+    "electron:dev": "npm start",
+    "lint": "tsc --noEmit && eslint src electron --ext .ts,.tsx"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@types/adm-zip": "^0.5.7",
+    "adm-zip": "^0.5.16",
     "electron-updater": "^6.8.3",
     "minecraft-launcher-core": "^3.18.2",
     "msmc": "^5.0.5",
@@ -26,11 +29,14 @@
     "@types/node-fetch": "^2.6.13",
     "@types/react": "^18.2.61",
     "@types/react-dom": "^18.2.19",
+    "@typescript-eslint/eslint-plugin": "^8.56.1",
+    "@typescript-eslint/parser": "^8.56.1",
     "@vitejs/plugin-react": "^4.2.1",
     "concurrently": "^8.2.2",
     "cross-env": "^7.0.3",
     "electron": "^29.1.0",
     "electron-builder": "^24.13.3",
+    "eslint": "^10.0.3",
     "typescript": "^5.3.3",
     "vite": "^5.1.4",
     "wait-on": "^7.2.0"
@@ -46,10 +52,6 @@
       "dist-electron/**/*",
       "electron/**/*",
       "src/assets/Logo.ico"
-    ],
-    "extraResources": [
-      "launcher_backend.py",
-      ".venv/**/*"
     ],
     "win": {
       "target": "nsis",
