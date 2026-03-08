@@ -1,11 +1,11 @@
 {
   "name": "xl-launcher",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Launcher Minecraft Moderne",
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build && electron-builder",
+    "build": "tsc -p tsconfig.electron.json && vite build && electron-builder",
     "preview": "vite preview",
     "start": "tsc -p tsconfig.electron.json && concurrently -k \"cross-env BROWSER=none npm run dev\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .\"",
     "electron:dev": "npm start"
@@ -14,6 +14,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "electron-updater": "^6.8.3",
     "minecraft-launcher-core": "^3.18.2",
     "msmc": "^5.0.5",
     "node-fetch": "^2.7.0",
@@ -43,7 +44,30 @@
     "files": [
       "dist/**/*",
       "dist-electron/**/*",
-      "electron/**/*"
+      "electron/**/*",
+      "src/assets/Logo.ico"
+    ],
+    "extraResources": [
+      "launcher_backend.py",
+      ".venv/**/*"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "src/assets/Logo.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "XL Launcher"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Clipdescript",
+        "repo": "XLAUNCHER"
+      }
     ]
   }
 }

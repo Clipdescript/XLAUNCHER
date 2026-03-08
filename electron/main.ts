@@ -1,4 +1,5 @@
 import { app, BrowserWindow, ipcMain, Menu, MenuItemConstructorOptions } from 'electron';
+import { autoUpdater } from 'electron-updater';
 import path from 'path';
 import { Client } from 'minecraft-launcher-core';
 import fs from 'fs';
@@ -103,6 +104,22 @@ function createWindow() {
         }
     });
 
+    // Configuration de l'auto-updater
+    if (!isDev) {
+        autoUpdater.checkForUpdatesAndNotify();
+    }
+
+    autoUpdater.on('update-available', () => {
+        win.webContents.send('log', '[UPDATE] Mise à jour disponible ! Téléchargement...');
+    });
+
+    autoUpdater.on('update-downloaded', () => {
+        win.webContents.send('log', '[UPDATE] Mise à jour téléchargée. Redémarrage dans 5s...');
+        setTimeout(() => {
+            autoUpdater.quitAndInstall();
+        }, 5000);
+    });
+
     return win;
 }
 
@@ -189,9 +206,36 @@ app.whenReady().then(() => {
         try {
             console.log(`Lancement de la version ${options.version} pour ${options.username}...`);
             
-            const pythonPath = path.join(process.cwd(), '.venv', 'Scripts', 'python.exe');
-            const scriptPath = path.join(process.cwd(), 'launcher_backend.py');
-            const executable = fs.existsSync(pythonPath) ? pythonPath : 'python';
+            // Gestion des chemins en Production vs Développement
+            const isPackaged = app.isPackaged;
+            let pythonExecutable = 'python';
+            let scriptPath = '';
+
+            if (isPackaged) {
+                // En production (installé), les fichiers sont dans resources
+                // process.resourcesPath pointe vers le dossier resources de l'installation
+                scriptPath = path.join(process.resourcesPath, 'launcher_backend.py');
+                
+                // Si on embarque le venv, on pointe vers lui
+                const venvPython = path.join(process.resourcesPath, '.venv', 'Scripts', 'python.exe');
+                if (fs.existsSync(venvPython)) {
+                    pythonExecutable = venvPython;
+                }
+            } else {
+                // En développement
+                scriptPath = path.join(process.cwd(), 'launcher_backend.py');
+                const venvPython = path.join(process.cwd(), '.venv', 'Scripts', 'python.exe');
+                if (fs.existsSync(venvPython)) {
+                    pythonExecutable = venvPython;
+                }
+            }
+
+            console.log(`Script Python: ${scriptPath}`);
+            console.log(`Exécutable Python: ${pythonExecutable}`);
+
+            if (!fs.existsSync(scriptPath)) {
+                throw new Error(`Le script backend est introuvable à : ${scriptPath}`);
+            }
             
             let args: string[] = [];
             
@@ -218,7 +262,10 @@ app.whenReady().then(() => {
                 args = [scriptPath, options.version, username, options.maxMem, loader, uuid, accessToken];
             }
             
-            const pyProcess = spawn(executable, args);
+            // IMPORTANT : cwd doit être le dossier resources en prod pour que Python trouve ses petits
+            const pythonCwd = isPackaged ? process.resourcesPath : process.cwd();
+
+            const pyProcess = spawn(pythonExecutable, args, { cwd: pythonCwd });
 
             pyProcess.stdout.on('data', (data) => {
                 const lines = data.toString().split('\n');
