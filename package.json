@@ -1,6 +1,6 @@
 {
   "name": "craft-launcher",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "Launcher Minecraft Moderne",
   "main": "dist-electron/main.js",
   "scripts": {
