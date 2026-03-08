@@ -230,7 +230,7 @@ const App: React.FC = () => {
         {/* Sidebar Right */}
         <div className="sidebar-right">
           <div className="sidebar-title">
-            <h2>PRISM LAUNCHER</h2>
+            <h2>CRAFT LAUNCHER</h2>
             <span>LAUNCHER POUR MINECRAFT</span>
           </div>
           
@@ -239,11 +239,11 @@ const App: React.FC = () => {
           <button className="sidebar-btn"><i className="fas fa-tshirt"></i> INSTALLER SKIN</button>
           <button className="sidebar-btn"><i className="fas fa-shopping-bag"></i> CAPES ANIMÉES</button>
           
-          <button className="sidebar-btn orange">XL | PRISM-LAUNCHER.ORG</button>
-          <button className="sidebar-btn blue">FB | PAGE FACEBOOK</button>
+          <button className="sidebar-btn orange">CL | CRAFT-LAUNCHER.ORG</button>
+          <button className="sidebar-btn blue">PF | PAGE FACEBOOK</button>
           
           <div className="sidebar-banner premium">
-            <span>Prism Launcher PREMIUM</span>
+            <span>Craft Launcher PREMIUM</span>
           </div>
           
           <div className="sidebar-banner discord">
