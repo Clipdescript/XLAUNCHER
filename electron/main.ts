@@ -91,7 +91,7 @@ function createWindow() {
     
     if (isDev) {
         win.loadURL('http://localhost:5173');
-        win.webContents.openDevTools(); // Activer les outils de développement pour le débogage
+        // win.webContents.openDevTools(); // Activer les outils de développement pour le débogage
     } else {
         win.loadFile(path.join(__dirname, '../dist/index.html'));
     }
